@@ -1,0 +1,139 @@
+#include<iostream>
+#include<cstdlib>
+#include<ctime>
+//12191781 손혁진
+using namespace std;
+bool g[4][7] = {
+	{1,0,0,0,1,1,0},
+	{0,1,0,0,0,1,1},
+	{0,0,1,0,1,1,1},
+	{0,0,0,1,1,0,1} };
+
+void makeM(bool m[1][4]);
+void makeU(bool m[1][4], bool u[1][4], int p);
+void makeC(bool m[1][4], bool g[4][7], bool c[1][7], int p);
+void makeHt(bool g[4][7], bool ht[7][3]);
+void makeS(bool c[1][7], bool ht[7][3],bool s[1][3]);
+bool errdetect(bool s[1][3]);
+void Uncodedresult(bool m[1][4], bool u[1][4], int p);
+void Codedresult(bool m[1][4], bool g[4][7], bool c[1][7], bool ht[7][3], bool s[1][3], int p);
+
+int main() {
+	srand((unsigned int)time(NULL));
+	bool m[1][4]{};
+	bool u[1][4]{};
+	bool c[1][7]{};
+	bool ht[7][3]{};
+	bool s[1][3]{};
+
+	Uncodedresult(m, u, 1);
+	Uncodedresult(m, u, 5);
+	Uncodedresult(m, u, 10);
+	Codedresult(m, g, c, ht, s, 1);
+	Codedresult(m, g, c, ht, s, 5);
+	Codedresult(m, g, c, ht, s, 10);
+}
+
+
+void Uncodedresult(bool m[1][4], bool u[1][4], int p) {
+	float count = 0;
+	float errper = 0;
+	for (int i = 0; i < 10000; i++) {
+		makeM(m);
+		makeU(m, u, p);
+		for (int j = 0; j < 4; j++) {
+			if (u[0][j] != m[0][j]) { //bit err 하나라도 발생
+				count++;
+				break;
+			}
+		}
+	}
+	errper = count / 10000 * 100;
+	cout << "===== Uncoded / Pb: "<<p<<" %===== " << endl << "Error 발생 횟수 : " << count <<
+		endl << "실제 Error 발생 확률 : " << errper << "%" <<
+		endl << "============================"<<endl;
+
+}
+void Codedresult(bool m[1][4], bool g[4][7], bool c[1][7], bool ht[7][3], bool s[1][3], int p) {
+	float count = 0;
+	float errper = 0;
+	for (int i = 0; i < 10000; i++) {
+		makeM(m);
+		makeC(m, g, c, p);
+		makeHt(g, ht);
+		makeS(c, ht, s);
+		if (errdetect(s) == 1)count++; 
+
+	}
+		errper = count / 10000 * 100;
+		cout << "=== (7,4) coded / Pb: " << p << " %=== " << endl << "Error 발생 횟수 : " << count <<
+			endl << "실제 Error 발생 확률 : " << errper << "%" <<
+			endl << "============================" << endl;
+}
+void makeU(bool m[1][4], bool u[1][4], int p) { //전송된 uncoded 배열 u 만들기
+//	cout << "Pb="<<p<<" 일때 uncoded로 전송받은 M=[ ";
+	for (int i = 0; i < 4; i++) {
+		int errp = rand() % 100; //각 비트별 실제로 err날 확률
+
+		if (errp < p) { //bit err 확률이 만족될 때,  즉 Pb를 만족할 때
+			u[0][i] = !m[0][i];
+		}
+		else {//bit err가 안일어났을때
+			u[0][i] = m[0][i];
+		}
+//		cout << u[0][i] << " ";
+	}
+//	cout << "]" << endl;
+}
+void makeM(bool m[1][4]) { // M 만들기
+//	cout << "M 배열 =[ ";
+	for (int i = 0; i < 4; i++) {
+		m[0][i] = rand() % 2;
+//		cout << m[0][i] << " ";
+	}
+//	cout << "]"<<endl;
+}
+void makeC(bool m[1][4], bool g[4][7],bool c[1][7],int p) { //M*G로 C 만들기
+
+	for (int i = 0; i < 7; i++) {
+		int errp = rand() % 100; //각 비트별 실제로 err날 확률
+		int multi = 0;
+
+		for (int j = 0; j < 4; j++) {
+			multi+=m[0][j]* g[j][i];
+		}
+
+		bool multi2 = multi % 2; //bool 형으로 변환
+
+		if(errp<p ) c[0][i] = !multi2; //bit err가 발생할 때
+		else c[0][i] = multi2; //bit err 없을 때
+
+	//	cout << c[0][i] << " ";
+	}
+}
+void makeHt(bool g[4][7],bool ht[7][3]) {
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 4; j++) { //p를 ht에 대입
+			ht[j][i] = g[j][4+i];
+		}
+	}
+	for (int k = 0; k < 3; k++) {//I 배열 마저 대입
+		ht[4+k][k] = 1;
+	}
+}
+void makeS(bool c[1][7], bool ht[7][3],bool s[1][3]) { //M*Ht로 Syndrome 만들기
+	for (int i = 0; i < 3; i++) {
+		int multi = 0;
+		for (int j = 0; j < 7; j++) {
+			multi += c[0][j] * ht[j][i];
+		}
+		s[0][i] = multi % 2;
+	//	cout << s[0][i] << " ";
+	}
+}
+bool errdetect(bool s[1][3]) { //syndrome에서 1이 검출되면 err감지(1 반환) ,err 없으면 (0반환)
+	for (int i = 0; i < 3; i++) {
+		if (s[0][i] != 0) return 1;
+		else return 0;
+	}
+}
